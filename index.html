@@ -4,21 +4,192 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>飞毛腿动力电子画册</title>
+<title>飞毛腿动力 · 产品画册</title>
 <style>
 * { box-sizing: border-box; }
-body { margin: 0; font-family: Arial, sans-serif; background: #f2f3f5; color: #222; }
-header { background: #fff; padding: 18px 12px; text-align: center; font-size: 20px; font-weight: bold; }
-main { max-width: 1100px; margin: 0 auto; padding: 12px; }
-a { color: #c00; display: inline-block; padding: 12px 0; }
-iframe { display: block; width: 100%; height: 85vh; border: 0; background: white; }
+body {
+  margin: 0;
+  background: #e9e9e9;
+  color: #222;
+  font-family: Arial, "Microsoft YaHei", sans-serif;
+}
+header {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 1px;
+}
+#status {
+  text-align: center;
+  padding: 16px;
+  color: #666;
+}
+#book-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+}
+#book {
+  margin: auto;
+}
+.page {
+  background: white;
+  overflow: hidden;
+}
+.page canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 16px;
+}
+button {
+  padding: 10px 22px;
+  border: 0;
+  border-radius: 4px;
+  background: #bd0000;
+  color: white;
+  font-size: 15px;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: .35;
+  cursor: default;
+}
+#counter { color: #555; font-size: 14px; }
+.hint {
+  text-align: center;
+  color: #888;
+  font-size: 12px;
+  padding-bottom: 20px;
+}
+a { color: #a00; }
 </style>
 </head>
 <body>
-<header>飞毛腿动力 · 产品画册</header>
-<main>
-<a href="./画册（定稿）.pdf" target="_blank">如果画册没有显示，请点击这里打开画册</a>
-<iframe src="./画册（定稿）.pdf" title="产品画册"></iframe>
-</main>
+<header>SCUD 飞毛腿动力 · 产品画册</header>
+<div id="status">正在加载画册，请稍候……</div>
+<div id="book-wrap"><div id="book"></div></div>
+<div class="controls">
+  <button id="prev" disabled>上一页</button>
+  <span id="counter">准备中</span>
+  <button id="next" disabled>下一页</button>
+</div>
+<div class="hint">电脑点击按钮或书页翻阅，手机可左右滑动</div>
+<div class="hint">
+  <a href="./%E7%94%BB%E5%86%8C%EF%BC%88%E5%AE%9A%E7%A8%BF%EF%BC%89.pdf" target="_blank">打开原始 PDF</a>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
+<script>
+const pdfUrl = "./%E7%94%BB%E5%86%8C%EF%BC%88%E5%AE%9A%E7%A8%BF%EF%BC%89.pdf";
+
+async function startBook() {
+  const status = document.getElementById("status");
+  try {
+    if (!window.pdfjsLib || !window.St || !window.St.PageFlip) {
+      throw new Error("翻页组件加载失败，请检查网络后刷新页面。");
+    }
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+    const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+    const pages = [];
+    let pageWidth = 0;
+    let pageHeight = 0;
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      status.textContent = `正在准备画册：${i} / ${pdf.numPages} 页`;
+
+      const pdfPage = await pdf.getPage(i);
+      const base = pdfPage.getViewport({ scale: 1 });
+      const scale = 900 / base.width;
+      const viewport = pdfPage.getViewport({ scale });
+
+      pageWidth = Math.round(viewport.width);
+      pageHeight = Math.round(viewport.height);
+
+      const page = document.createElement("div");
+      page.className = "page";
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
+      page.appendChild(canvas);
+
+      await pdfPage.render({
+        canvasContext: canvas.getContext("2d"),
+        viewport
+      }).promise;
+
+      pages.push(page);
+    }
+
+    status.style.display = "none";
+
+    const isMobile = window.innerWidth < 700;
+    const maxWidth = Math.min(window.innerWidth - 32, 1100);
+    const displayWidth = isMobile
+      ? Math.min(maxWidth, pageWidth)
+      : Math.min(maxWidth / 2, pageWidth);
+    const displayHeight = displayWidth * pageHeight / pageWidth;
+
+    const flip = new St.PageFlip(document.getElementById("book"), {
+      width: Math.round(displayWidth),
+      height: Math.round(displayHeight),
+      size: "fixed",
+      minWidth: 250,
+      maxWidth: 700,
+      minHeight: 350,
+      maxHeight: 1000,
+      showCover: true,
+      usePortrait: true,
+      mobileScrollSupport: false,
+      maxShadowOpacity: 0.35,
+      flippingTime: 800,
+      drawShadow: true,
+      autoSize: true
+    });
+
+    flip.loadFromHTML(pages);
+    const prev = document.getElementById("prev");
+    const next = document.getElementById("next");
+    const counter = document.getElementById("counter");
+
+    function update() {
+      const current = flip.getCurrentPageIndex() + 1;
+      counter.textContent = `${current} / ${pdf.numPages} 页`;
+      prev.disabled = current <= 1;
+      next.disabled = current >= pdf.numPages;
+    }
+
+    prev.onclick = () => flip.flipPrev();
+    next.onclick = () => flip.flipNext();
+    flip.on("flip", update);
+    prev.disabled = false;
+    next.disabled = false;
+    update();
+  } catch (err) {
+    status.innerHTML =
+      "画册加载失败：" + err.message +
+      '<br><br><a href="' + pdfUrl + '">点击这里直接打开 PDF</a>';
+  }
+}
+
+startBook();
+</script>
 </body>
 </html>
